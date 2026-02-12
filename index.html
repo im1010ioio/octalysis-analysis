@@ -38,10 +38,20 @@
 
         <div class="flex flex-col lg:flex-row">
             <!-- 左側：圖表主視覺 -->
-            <div class="lg:w-2/3 p-6 flex flex-col items-center justify-center border-b lg:border-b-0 lg:border-r border-slate-200">
+            <div class="relative lg:w-2/3 p-6 flex flex-col items-center justify-center border-b lg:border-b-0 lg:border-r border-slate-200"
+                style="
+                    background:
+                        linear-gradient(#e5e7eb 4px, transparent 0),
+                        linear-gradient(90deg, #e5e7eb 4px, transparent 0),
+                        linear-gradient(transparent 50%, #c5cede 0);
+                    background-size: 100% 52.25%, 50% 100%, 100% 105%;">
+                <span class="font-bold text-[11px] text-slate-500">白帽：帶來希望與掌控感，適合長期體驗（如社群、忠誠計畫）</span>
                 <div class="canvas-container">
                     <canvas id="octalysisChart"></canvas>
                 </div>
+                <span class="font-bold text-[11px] text-slate-500">黑帽：製造焦慮與急迫感，短期強烈但長期可能負面（如限時提示）</span>
+                <span class="absolute font-bold left-4 text-[11px] text-slate-500">左腦（外在動機）：<br>行為來自獎勵或目標<br>一旦獎勵消失<br>行為也會停止</span>
+                <span class="absolute font-bold right-4 text-[11px] text-slate-500">右腦（內在動機）：<br>行為來自樂趣與情感<br>即使沒有獎勵<br>也會投入</span>
             </div>
 
             <!-- 右側：控制面板 -->
