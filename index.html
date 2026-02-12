@@ -1,0 +1,311 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Octalysis 八角框架分析工具</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body {
+            background-color: #f8fafc;
+        }
+        .canvas-container {
+            position: relative;
+            margin: auto;
+            height: 60vh;
+            width: 80vw;
+        }
+        input[type="number"] {
+            -moz-appearance: textfield;
+        }
+        input::-webkit-outer-spin-button,
+        input::-webkit-inner-spin-button {
+            -webkit-appearance: none;
+            margin: 0;
+        }
+    </style>
+</head>
+<body class="p-4 md:p-8">
+    <div class="max-w-6xl mx-auto bg-white rounded-2xl shadow-xl overflow-hidden">
+        <!-- 標題區 -->
+        <div class="bg-slate-800 text-white p-6 text-center">
+            <h1 class="text-3xl font-bold mb-2">現況診斷 (Octalysis Analysis)</h1>
+            <p class="text-slate-400">針對產品/情境，分析 CD1~CD8 的動機元素與驅動力</p>
+        </div>
+
+        <div class="flex flex-col lg:flex-row">
+            <!-- 左側：圖表主視覺 -->
+            <div class="lg:w-2/3 p-6 flex flex-col items-center justify-center border-b lg:border-b-0 lg:border-r border-slate-200">
+                <div class="canvas-container">
+                    <canvas id="octalysisChart"></canvas>
+                </div>
+            </div>
+
+            <!-- 右側：控制面板 -->
+            <div class="lg:w-1/3 p-6 bg-slate-50 overflow-y-auto max-h-[80vh]">
+                <h2 class="text-xl font-bold mb-4 text-slate-700 border-b pb-2">數據設定</h2>
+                
+                <!-- 目前狀態 (固定) -->
+                <div class="mb-8">
+                    <h3 class="font-bold text-blue-600 mb-3 flex items-center">
+                        <span class="w-3 h-3 bg-blue-500 rounded-full mr-2"></span> 目前現況
+                    </h3>
+                    <div id="currentInputs" class="grid grid-cols-2 gap-3">
+                        <!-- 動態生成 8 個核心驅動力輸入 -->
+                    </div>
+                </div>
+
+                <!-- 預計目標 (切換) -->
+                <div class="mb-8 border-t pt-4">
+                    <div class="flex justify-between items-center mb-3">
+                        <h3 class="font-bold text-emerald-600 flex items-center">
+                            <span class="w-3 h-3 bg-emerald-500 rounded-full mr-2"></span> 預計目標
+                        </h3>
+                        <button onclick="toggleDataset('target')" id="btn-target" class="text-xs px-2 py-1 rounded bg-emerald-100 text-emerald-700 hover:bg-emerald-200">顯示/隱藏</button>
+                    </div>
+                    <div id="targetInputs" class="grid grid-cols-2 gap-3 hidden">
+                        <!-- 目標分數輸入 -->
+                    </div>
+                </div>
+
+                <!-- 競品分析 (新增) -->
+                <div class="mb-8 border-t pt-4">
+                    <div class="flex justify-between items-center mb-3">
+                        <h3 class="font-bold text-orange-600 flex items-center">
+                            <span class="w-3 h-3 bg-orange-500 rounded-full mr-2"></span> 競品對比
+                        </h3>
+                        <button onclick="addCompetitor()" class="text-xs px-2 py-1 rounded bg-orange-100 text-orange-700 hover:bg-orange-200">+ 新增競品</button>
+                    </div>
+                    <div id="competitorList" class="space-y-4">
+                        <!-- 競品列表區域 -->
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const labels = [
+            'CD1 重大使命與呼召',
+            'CD2 發展與成就',
+            'CD3 賦予創造力與回饋',
+            'CD4 所有權與佔有慾',
+            'CD5 社交影響力與同理心',
+            'CD6 稀缺性與迫切',
+            'CD7 不確定性與好奇心',
+            'CD8 損失與避免'
+        ];
+
+        let chart;
+        const datasets = {
+            current: [5, 4, 6, 3, 5, 2, 4, 3],
+            target: [8, 8, 7, 6, 7, 5, 6, 4],
+            competitors: [] // 格式: { name: '名稱', data: [], visible: true, color: '' }
+        };
+
+        const colors = [
+            'rgba(249, 115, 22, 0.7)', // Orange
+            'rgba(168, 85, 247, 0.7)', // Purple
+            'rgba(236, 72, 153, 0.7)', // Pink
+            'rgba(20, 184, 166, 0.7)'  // Teal
+        ];
+
+        function initChart() {
+            const ctx = document.getElementById('octalysisChart').getContext('2d');
+            
+            const chartData = {
+                labels: labels,
+                datasets: [
+                    {
+                        label: '目前現況',
+                        data: datasets.current,
+                        backgroundColor: 'rgba(59, 130, 246, 0.2)',
+                        borderColor: 'rgb(59, 130, 246)',
+                        pointBackgroundColor: 'rgb(59, 130, 246)',
+                        borderWidth: 3,
+                        fill: true
+                    },
+                    {
+                        label: '預計目標',
+                        data: datasets.target,
+                        backgroundColor: 'rgba(16, 185, 129, 0.1)',
+                        borderColor: 'rgb(16, 185, 129)',
+                        pointBackgroundColor: 'rgb(16, 185, 129)',
+                        borderDash: [5, 5],
+                        borderWidth: 2,
+                        hidden: true,
+                        fill: true
+                    }
+                ]
+            };
+
+            chart = new Chart(ctx, {
+                type: 'radar',
+                data: chartData,
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        r: {
+                            angleLines: { color: '#e2e8f0' },
+                            grid: { color: '#e2e8f0' },
+                            suggestedMin: 0,
+                            suggestedMax: 10,
+                            ticks: { stepSize: 2, display: false },
+                            pointLabels: {
+                                font: { size: 14, weight: 'bold' },
+                                color: '#334155'
+                            }
+                        }
+                    },
+                    plugins: {
+                        legend: { position: 'top' }
+                    }
+                }
+            });
+        }
+
+        function createInputGroup(containerId, dataArray, type, competitorIndex = null) {
+            const container = document.getElementById(containerId);
+            container.innerHTML = '';
+            
+            labels.forEach((label, i) => {
+                const div = document.createElement('div');
+                div.className = 'flex flex-col';
+                
+                const labelText = document.createElement('label');
+                labelText.className = 'text-[10px] text-slate-500 mb-1';
+                labelText.innerText = `CD${i+1}`;
+                
+                const input = document.createElement('input');
+                input.type = 'number';
+                input.min = 0;
+                input.max = 10;
+                input.value = competitorIndex !== null ? datasets.competitors[competitorIndex].data[i] : dataArray[i];
+                input.className = 'border border-slate-300 rounded px-2 py-1 text-sm focus:ring-2 focus:ring-blue-400 outline-none';
+                
+                input.oninput = (e) => {
+                    let val = parseInt(e.target.value) || 0;
+                    if (val > 10) val = 10;
+                    if (val < 0) val = 0;
+                    
+                    if (competitorIndex !== null) {
+                        datasets.competitors[competitorIndex].data[i] = val;
+                        updateChart();
+                    } else if (type === 'current') {
+                        datasets.current[i] = val;
+                        chart.data.datasets[0].data = datasets.current;
+                        chart.update();
+                    } else if (type === 'target') {
+                        datasets.target[i] = val;
+                        chart.data.datasets[1].data = datasets.target;
+                        chart.update();
+                    }
+                };
+
+                div.appendChild(labelText);
+                div.appendChild(input);
+                container.appendChild(div);
+            });
+        }
+
+        function toggleDataset(type) {
+            const isTarget = type === 'target';
+            const btn = document.getElementById(`btn-${type}`);
+            const inputArea = document.getElementById(`${type}Inputs`);
+            
+            const datasetIndex = isTarget ? 1 : null;
+            chart.setDatasetVisibility(datasetIndex, !chart.isDatasetVisible(datasetIndex));
+            chart.update();
+            
+            inputArea.classList.toggle('hidden');
+            btn.innerText = inputArea.classList.contains('hidden') ? '顯示/隱藏' : '收合';
+        }
+
+        function addCompetitor() {
+            const id = Date.now();
+            const color = colors[datasets.competitors.length % colors.length];
+            const newComp = {
+                id: id,
+                name: `競品 ${datasets.competitors.length + 1}`,
+                data: [3, 3, 3, 3, 3, 3, 3, 3],
+                color: color
+            };
+            datasets.competitors.push(newComp);
+            renderCompetitorList();
+            updateChart();
+        }
+
+        function removeCompetitor(id) {
+            datasets.competitors = datasets.competitors.filter(c => c.id !== id);
+            renderCompetitorList();
+            updateChart();
+        }
+
+        function renderCompetitorList() {
+            const container = document.getElementById('competitorList');
+            container.innerHTML = '';
+
+            datasets.competitors.forEach((comp, idx) => {
+                const wrapper = document.createElement('div');
+                wrapper.className = 'bg-white p-3 rounded-lg border border-slate-200 shadow-sm';
+                
+                const header = document.createElement('div');
+                header.className = 'flex justify-between items-center mb-2';
+                
+                const nameInput = document.createElement('input');
+                nameInput.value = comp.name;
+                nameInput.className = 'font-bold text-sm bg-transparent border-b border-dashed border-slate-300 focus:border-orange-400 outline-none w-2/3';
+                nameInput.oninput = (e) => {
+                    comp.name = e.target.value;
+                    updateChart();
+                };
+
+                const delBtn = document.createElement('button');
+                delBtn.innerHTML = '✕';
+                delBtn.className = 'text-slate-400 hover:text-red-500 text-xs';
+                delBtn.onclick = () => removeCompetitor(comp.id);
+
+                header.appendChild(nameInput);
+                header.appendChild(delBtn);
+                wrapper.appendChild(header);
+
+                const gridId = `comp-grid-${comp.id}`;
+                const grid = document.createElement('div');
+                grid.id = gridId;
+                grid.className = 'grid grid-cols-4 gap-2';
+                wrapper.appendChild(grid);
+                
+                container.appendChild(wrapper);
+                createInputGroup(gridId, null, 'competitor', idx);
+            });
+        }
+
+        function updateChart() {
+            // 保留前兩個基礎 Dataset (目前與預計)
+            const baseDatasets = chart.data.datasets.slice(0, 2);
+            
+            // 重新加上競品 Dataset
+            const compDatasets = datasets.competitors.map(comp => ({
+                label: comp.name,
+                data: comp.data,
+                backgroundColor: comp.color.replace('0.7', '0.1'),
+                borderColor: comp.color,
+                pointBackgroundColor: comp.color,
+                borderWidth: 2,
+                fill: true
+            }));
+
+            chart.data.datasets = [...baseDatasets, ...compDatasets];
+            chart.update();
+        }
+
+        window.onload = () => {
+            initChart();
+            createInputGroup('currentInputs', datasets.current, 'current');
+            createInputGroup('targetInputs', datasets.target, 'target');
+        };
+    </script>
+</body>
+</html>
