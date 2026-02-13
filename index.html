@@ -331,7 +331,16 @@
         };
 
         // 嘗試從 localStorage 讀取，否則使用預設
-        let datasets = loadData() || JSON.parse(JSON.stringify(defaultDatasets));
+        const savedData = loadData();
+        let datasets = savedData?.datasets || JSON.parse(JSON.stringify(defaultDatasets));
+        
+        // Restore or initialize UI State
+        if (savedData?.uiState) {
+            // Restore saved UI state
+            uiState.current = savedData.uiState.current || { activePhase: 0, visiblePhases: [true, false, false, false] };
+            uiState.target = savedData.uiState.target || { activePhase: 0, visiblePhases: [false, false, false, false] };
+            uiState.competitors = savedData.uiState.competitors || {};
+        }
 
         // Migration Check: If old format (single array), convert to 4-phase
         if (datasets.current && !Array.isArray(datasets.current[0])) {
@@ -348,7 +357,7 @@
             saveData();
         }
         
-        // Initialize UI State for competitors
+        // Initialize UI State for competitors (ensure all loaded competitors have UI state)
         datasets.competitors.forEach(comp => {
             if (!uiState.competitors[comp.id]) {
                 uiState.competitors[comp.id] = { activePhase: 0, visiblePhases: [true, false, false, false] };
@@ -364,12 +373,25 @@
 
         // --- Data Persistence Functions ---
         function saveData() {
-            localStorage.setItem('octalysisData', JSON.stringify(datasets));
+            const saveObj = {
+                datasets: datasets,
+                uiState: uiState
+            };
+            localStorage.setItem('octalysisData', JSON.stringify(saveObj));
         }
 
         function loadData() {
             const data = localStorage.getItem('octalysisData');
-            return data ? JSON.parse(data) : null;
+            if (!data) return null;
+            
+            const parsed = JSON.parse(data);
+            
+            // Handle old format (just datasets) vs new format (datasets + uiState)
+            if (parsed.datasets) {
+                return parsed; // New format with uiState
+            } else {
+                return { datasets: parsed, uiState: null }; // Old format, migrate
+            }
         }
 
         function resetData() {
