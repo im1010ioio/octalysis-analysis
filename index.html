@@ -31,9 +31,26 @@
 <body class="p-4 md:p-8">
     <div class="mx-auto bg-white rounded-2xl shadow-xl overflow-hidden">
         <!-- 標題區 -->
-        <div class="bg-slate-800 text-white p-6 text-center">
-            <h1 class="text-3xl font-bold mb-2">現況診斷 (Octalysis Analysis)</h1>
-            <p class="text-slate-400">針對產品/情境，分析 CD1~CD8 的動機元素與驅動力</p>
+        <div class="flex items-center bg-slate-800 text-white p-6">
+            <div>
+                <h1 class="text-3xl font-bold mb-2">現況診斷 (Octalysis Analysis)</h1>
+                <p class="text-slate-400 mb-4">針對產品/情境，分析 CD1~CD8 的動機元素與驅動力</p>
+            </div>
+            
+            <!-- 分析結果區塊 -->
+            <div id="analysis-result" class="ml-auto">
+                <div class="">
+                    <div class="font-bold mb-1">
+                        <span class="text-blue-300">
+                            <span id="analysis-score">0</span> 分
+                        </span>
+                        <span class="font-bold text-white" id="analysis-summary"></span>
+                    </div>
+                    <div class="text-xs text-slate-400 max-w-lg">
+                        <span id="analysis-feedback"></span>
+                    </div>
+                </div>
+            </div>
         </div>
 
         <div class="flex flex-col lg:flex-row">
@@ -98,6 +115,158 @@
     </div>
 
     <script>
+        /**
+         * Octalysis 核心計分與評分邏輯 (已翻譯為台灣繁體中文)
+         */
+        const OctalysisCalculator = {
+            // 定義評語常數
+            TEXTS: {
+                summary: {
+                    initial: "你的 Octalysis 分析",
+                    whiteHat: "白帽設計 (White Hat)",
+                    blackHat: "黑帽設計 (Black Hat)",
+                    proudOfYou: "為你感到驕傲",
+                    weakExperience: "體驗薄弱",
+                    leftBrain: "左腦導向 (Left Brain)",
+                    rightBrain: "右腦導向 (Right Brain)",
+                    goodMotivation: "動機平衡良好",
+                    fallingAsleep: "令人昏昏欲睡",
+                    anotherDay: "改天再說"
+                },
+                feedback: {
+                    initial: "請調整上方的滑桿來設定核心驅動力數值，並設定你的專案標題與副標題。\n你也可以為專案設定 Logo。",
+                    whiteHat: "你的體驗設計重度偏向「白帽」核心驅動力，這意味著使用者感覺很棒且充滿力量。缺點是使用者缺乏執行期望行動的急迫感。試著加入一些輕度的「黑帽」技巧來為體驗增添一點刺激感。",
+                    blackHat: "你的體驗設計重度偏向「黑帽」核心驅動力，這意味著驅動使用者行為的效果極佳，但使用者可能感覺不好，長期下來可能會離開你的系統（想想某些 Zynga 的產品）。強烈建議加入「白帽」技巧，讓使用者在不由自主地採取行動後，也能感覺良好。",
+                    proudOfYou: "你的體驗在「白帽」與「黑帽」核心驅動力上相當平衡。真為你感到驕傲 ;-)",
+                    weakExperience: "你的體驗在「白帽」與「黑帽」核心驅動力上都很弱。你知道這種兩邊都不敢下注的保守做法，是無法帶你到達任何目標的嗎？",
+                    leftBrain: "此外，你的「左腦」核心驅動力比「右腦」強很多，意味著你的體驗本質上更偏向「外在動機」。這可能會影響長期參與度，因為一旦獎勵目標被移除或減少，使用者就會失去動機。考慮加入更多「右腦」核心驅動力，讓活動本身就變得有趣！",
+                    rightBrain: "此外，你的「右腦」核心驅動力比「左腦」強很多，意味著你的體驗本質上更偏向「內在動機」。這很棒，因為使用者真心享受你的體驗。你也可以考慮加入更多「左腦」遊戲化技巧，增加成就感、深層的所有權以及受控的限制設計，來讓體驗更豐富有趣。",
+                    goodMotivation: "此外，你在「左腦」與「右腦」核心驅動力之間似乎取得了很好的平衡，這意味著你可能有很好的內在與外在動機平衡。但請務必小心，因為設計不良的外在動機可能會扼殺原有的內在動機。",
+                    fallingAsleep: "嗯，看起來你的體驗無論在「右腦」還是「左腦」核心驅動力上都不強，這意味著你的內在與外在動機都很薄弱。看著看著我都快睡著了。",
+                    anotherDay: "我剛剛對你的體驗有個可以改變你一生的絕妙洞見。但我看... 還是改天再告訴你好了。"
+                }
+            },
+
+            // 將輸入物件轉換為特定順序的陣列
+            // 順序: [CD1, CD3, CD5, CD7, CD8, CD6, CD4, CD2]
+            getScoreArray(data) {
+                return [
+                    data.CD1, // Index 0: 史詩意義與使命感
+                    data.CD3, // Index 1: 賦予創造能力與回饋
+                    data.CD5, // Index 2: 社會影響力與同理心
+                    data.CD7, // Index 3: 未知性與好奇心
+                    data.CD8, // Index 4: 損失與避免
+                    data.CD6, // Index 5: 稀缺性與迫切感
+                    data.CD4, // Index 6: 所有權與佔有慾
+                    data.CD2  // Index 7: 發展與成就感
+                ];
+            },
+
+            // 計算總分 (平方和)
+            getTotalScore(arr) {
+                return arr.map(s => Math.pow(s, 2)).reduce((a, b) => a + b, 0);
+            },
+
+            // 計算白帽分數
+            getWhiteHatScore(t) {
+                return (5 * t[0]) + (3 * t[7]) + (3 * t[1]) + (1 * t[6]) + (1 * t[2]);
+            },
+
+            // 計算黑帽分數
+            getBlackHatScore(t) {
+                return (5 * t[4]) + (3 * t[3]) + (3 * t[5]) + (1 * t[2]) + (1 * t[6]);
+            },
+
+            // 計算右腦分數
+            getRightBrainScore(t) {
+                return (5 * t[2]) + (3 * t[1]) + (3 * t[3]) + (1 * t[0]) + (1 * t[4]);
+            },
+
+            // 計算左腦分數
+            getLeftBrainScore(t) {
+                return (5 * t[6]) + (3 * t[5]) + (3 * t[7]) + (1 * t[0]) + (1 * t[4]);
+            },
+
+            // 主要分析函數
+            analyze(inputData) {
+                const arr = this.getScoreArray(inputData);
+                
+                const totalScore = this.getTotalScore(arr);
+                const wh = this.getWhiteHatScore(arr);
+                const bh = this.getBlackHatScore(arr);
+                const lb = this.getLeftBrainScore(arr);
+                const rb = this.getRightBrainScore(arr);
+
+                let summary = "";
+                let feedback = "";
+
+                // 判斷基礎狀態 (全為0)
+                if (wh === 0 && bh === 0 && lb === 0 && rb === 0) {
+                    return {
+                        score: totalScore,
+                        summary: this.TEXTS.summary.initial,
+                        feedback: this.TEXTS.feedback.initial
+                    };
+                }
+
+                // --- 第一階段：白帽 vs 黑帽 ---
+                if (wh > 40 && (2 * bh) < wh) {
+                    summary = this.TEXTS.summary.whiteHat;
+                    feedback = this.TEXTS.feedback.whiteHat;
+                } else if (bh > 40 && (2 * wh) < bh) {
+                    summary = this.TEXTS.summary.blackHat;
+                    feedback = this.TEXTS.feedback.blackHat;
+                } else if (wh > 40 && bh > 40) {
+                    summary = this.TEXTS.summary.proudOfYou;
+                    feedback = this.TEXTS.feedback.proudOfYou;
+                } else if (wh < 40 && bh < 40) {
+                    summary = this.TEXTS.summary.weakExperience;
+                    feedback = this.TEXTS.feedback.weakExperience;
+                }
+
+                // 處理 Feedback 連接詞
+                if (feedback !== "") {
+                    feedback += " / ";
+                }
+
+                // --- 第二階段：左腦 vs 右腦 ---
+                // 處理 Summary 連接詞 (如果前面有內容，加 " 以及 ")
+                const summaryPrefix = summary !== "" ? " 以及 " : "";
+
+                if (lb > 40 && (2 * rb) < lb) {
+                    summary += summaryPrefix + this.TEXTS.summary.leftBrain;
+                    feedback += this.TEXTS.feedback.leftBrain;
+                } else if (rb > 40 && (2 * lb) < rb) {
+                    summary += summaryPrefix + this.TEXTS.summary.rightBrain;
+                    feedback += this.TEXTS.feedback.rightBrain;
+                } else if (rb > 40 && lb > 40) {
+                    summary += summaryPrefix + this.TEXTS.summary.goodMotivation;
+                    feedback += this.TEXTS.feedback.goodMotivation;
+                } else if (rb < 40 && lb < 40) {
+                    summary += summaryPrefix + this.TEXTS.summary.fallingAsleep;
+                    feedback += this.TEXTS.feedback.fallingAsleep;
+                }
+
+                // 如果最後 summary 還是空的
+                if (summary === "") {
+                    summary = this.TEXTS.summary.anotherDay;
+                    feedback = this.TEXTS.feedback.anotherDay;
+                }
+
+                return {
+                    score: totalScore,
+                    metrics: {
+                        whiteHat: wh,
+                        blackHat: bh,
+                        leftBrain: lb,
+                        rightBrain: rb
+                    },
+                    summary: summary,
+                    feedback: feedback
+                };
+            }
+        };
+
         // 1. 定義圖表上的標籤順序 (維持您原本的設定，這決定了雷達圖軸線的順序)
         // 順序: CD1, CD3, CD5, CD7, CD8, CD6, CD4, CD2 (對應 index 0~7)
         const chartLabels = [
@@ -243,6 +412,7 @@
                         datasets.current[item.dataIndex] = val;
                         chart.data.datasets[0].data = datasets.current;
                         chart.update();
+                        updateAnalysisResult(); // 新增：更新分析結果
                     } else if (type === 'target') {
                         datasets.target[item.dataIndex] = val;
                         chart.data.datasets[1].data = datasets.target;
@@ -372,9 +542,45 @@
             chart.update();
         }
 
+        // 新增：更新分析結果的函數
+        function updateAnalysisResult() {
+            // 透過 inputConfig 與 datasets.current 組裝 OctalysisCalculator 需要的 inputData
+            // Input Data 需要: { CD1: val, CD2: val, ... CD8: val }
+            const inputData = {};
+            
+            // datasets.current 的順序是 [CD1, CD3, CD5, CD7, CD8, CD6, CD4, CD2] (依照 chartLabels)
+            // chartLabels 對應:
+            // 0: CD1, 1: CD3, 2: CD5, 3: CD7, 4: CD8, 5: CD6, 6: CD4, 7: CD2
+            
+            inputData.CD1 = datasets.current[0] || 0;
+            inputData.CD3 = datasets.current[1] || 0;
+            inputData.CD5 = datasets.current[2] || 0;
+            inputData.CD7 = datasets.current[3] || 0;
+            inputData.CD8 = datasets.current[4] || 0;
+            inputData.CD6 = datasets.current[5] || 0;
+            inputData.CD4 = datasets.current[6] || 0;
+            inputData.CD2 = datasets.current[7] || 0;
+
+            const result = OctalysisCalculator.analyze(inputData);
+
+            // 更新 UI
+            const resultDiv = document.getElementById('analysis-result');
+            const scoreSpan = document.getElementById('analysis-score');
+            const summarySpan = document.getElementById('analysis-summary');
+            const feedbackSpan = document.getElementById('analysis-feedback');
+
+            if (result && resultDiv) {
+                resultDiv.classList.remove('hidden');
+                scoreSpan.innerText = result.score;
+                summarySpan.innerText = result.summary;
+                feedbackSpan.innerText = result.feedback;
+            }
+        }
+
         window.onload = () => {
             initChart();
             createInputGroup('currentInputs', datasets.current, 'current');
+            updateAnalysisResult(); // 新增：初始化時執行一次分析
             createInputGroup('targetInputs', datasets.target, 'target');
         };
     </script>
