@@ -6,6 +6,7 @@
     <title>Octalysis 八角框架分析工具</title>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     <style>
         body {
             background-color: #f8fafc;
@@ -395,25 +396,45 @@
         }
 
         function resetData() {
-            if(confirm('確定要自瀏覽器清除所有設定並回復預設值嗎？')) {
-                // Reset Data
-                datasets = JSON.parse(JSON.stringify(defaultDatasets));
-                saveData();
-                
-                // Reset UI State
-                uiState.current = { activePhase: 0, visiblePhases: [true, false, false, false] };
-                uiState.target = { activePhase: 0, visiblePhases: [false, false, false, false] }; // 預設圖表關閉
-                uiState.competitors = {};
+            Swal.fire({
+                title: '確定要重置嗎？',
+                text: '將會清除瀏覽器中的所有設定並回復預設值',
+                icon: 'warning',
+                showCancelButton: true,
+                confirmButtonColor: '#3b82f6',
+                cancelButtonColor: '#64748b',
+                confirmButtonText: '確定重置',
+                cancelButtonText: '取消'
+            }).then((result) => {
+                if (result.isConfirmed) {
+                    // Reset Data
+                    datasets = JSON.parse(JSON.stringify(defaultDatasets));
+                    saveData();
+                    
+                    // Reset UI State
+                    uiState.current = { activePhase: 0, visiblePhases: [true, false, false, false] };
+                    uiState.target = { activePhase: 0, visiblePhases: [false, false, false, false] }; // 預設圖表關閉
+                    uiState.competitors = {};
 
-                // Re-initialize everything
-                createPhaseControls('phase-controls-current', 'current');
-                createPhaseControls('phase-controls-target', 'target');
-                initChart();
-                createInputGroup('currentInputs', datasets.current, 'current');
-                createInputGroup('targetInputs', datasets.target, 'target');
-                renderCompetitorList();
-                updateAnalysisResult();
-            }
+                    // Re-initialize everything
+                    createPhaseControls('phase-controls-current', 'current');
+                    createPhaseControls('phase-controls-target', 'target');
+                    initChart();
+                    createInputGroup('currentInputs', datasets.current, 'current');
+                    createInputGroup('targetInputs', datasets.target, 'target');
+                    renderCompetitorList();
+                    updateAnalysisResult();
+                    
+                    // Success message
+                    Swal.fire({
+                        title: '重置完成！',
+                        text: '所有設定已回復為預設值',
+                        icon: 'success',
+                        confirmButtonColor: '#3b82f6',
+                        timer: 2000
+                    });
+                }
+            });
         }
         // ----------------------------------
 
